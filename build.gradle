@@ -1,0 +1,69 @@
+plugins {
+	id 'fabric-loom' version "${loom_version}"
+	id 'maven-publish'
+	id 'com.github.johnrengelman.shadow' version '8.1.1'
+}
+
+ext.fabric_api_version = "0.136.0+1.21.10"
+
+version = project.mod_version
+group = project.maven_group
+
+base {
+	archivesName = project.archives_base_name
+}
+
+repositories {
+	flatDir {
+		dirs 'libs'
+	}
+}
+
+dependencies {
+	mappings loom.officialMojangMappings()
+	minecraft "com.mojang:minecraft:${project.minecraft_version}"
+	// OpenVINO JAR
+	implementation files('libs/openvino-2023.0-windows-x86_64.jar')
+	// OSHI
+	modImplementation 'com.github.oshi:oshi-core:6.9.1'
+	// Shadow JAR'ın içine göm
+	shadow files('libs/openvino-2023.0-windows-x86_64.jar')
+	modImplementation 'com.github.sarxos:webcam-capture:0.3.12'
+	implementation 'com.nativelibs4java:bridj:0.7.0'
+	modImplementation "net.fabricmc:fabric-loader:${project.loader_version}"
+	modImplementation "net.fabricmc.fabric-api:fabric-api:0.136.0+1.21.10"
+	modImplementation "net.fabricmc.fabric-api:fabric-lifecycle-events-v1:0.136.0+1.21.10"
+}
+
+loom {
+	splitEnvironmentSourceSets()
+}
+
+tasks.withType(JavaCompile).configureEach {
+	it.options.release = 21
+}
+
+java {
+	withSourcesJar()
+	sourceCompatibility = JavaVersion.VERSION_21
+	targetCompatibility = JavaVersion.VERSION_21
+}
+
+processResources {
+	inputs.property "version", project.version
+	filesMatching("fabric.mod.json") {
+		expand "version": inputs.properties.version
+	}
+}
+
+// SHADOW JAR
+shadowJar {
+	archiveClassifier.set("shadow")
+	configurations = [project.configurations.shadow]
+	// OpenVINO native DLL klasörünü ekle
+	from('src/main/resources/') {
+		include 'openvino-natives/**'
+		include 'assets/ai_accelerated_minecraft/models/emotions-recognition-retail-0003/**'
+	}
+	// ❗ relocate YAPMIYORUZ — JNI bozulur
+}
